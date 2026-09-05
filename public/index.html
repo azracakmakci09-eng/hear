@@ -40,69 +40,28 @@ async function req(p,b){let r=await fetch(p,{method:"POST",headers:{"Content-Typ
 function line(m){return `<div class="line ${m.system?"sys":""}"><b>${esc(m.from)}</b>: ${esc(m.text)}</div>`}function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 
 function startGame(net){mode="game";clearInterval(poll);let m=maps[net?room.map:mapIndex];game={map:m,x:m.start[0],y:m.start[1],alive:true,escaped:false,spectate:false,items:net?room.items.map(x=>({...x})):JSON.parse(JSON.stringify([{id:0,name:"Seventh Bell",digit:7,x:6,y:3,collected:false},{id:1,name:"Third Eye",digit:3,x:13,y:19,collected:false},{id:2,name:"Fourth Key",digit:4,x:22,y:9,collected:false},{id:3,name:"Second Candle",digit:2,x:27,y:19,collected:false},{id:4,name:"Silent Ribbon",digit:null,x:8,y:11,collected:false}])),inv:[],ezra:{x:m.start[0]+9,y:m.start[1]+6},net};root.innerHTML=`<div id="game"><canvas id="cv"></canvas><div class="hud"><div class="hudTop"><div class="badge">${m.name}</div><div class="badge">EXIT: <span id="exit">????</span></div></div><div class="gameChat" id="gchat"><div class="log" id="glog"></div><div class="chatbar"><input id="gi" placeholder="TYPE A MESSAGE"><button onclick="gmsg()">↵</button></div></div><button class="toggle" onclick="toggleChat()">CHAT</button><div class="inv" id="hotbar">${[0,1,2].map(i=>`<div class="slot" id="slot${i}"></div>`).join("")}</div><div class="inventory" id="inventory">${Array.from({length:7},(_,i)=>`<div class="slot" id="is${i}"></div>`).join("")}</div><div class="death" id="death"><img class="ez" src="${A}ezra.png"><div class="deadtitle">CAUGHT</div><div class="respawn" id="respawn">RESPAWN (5)</div></div><div class="ending" id="ending"><img src="${A}ezra.png"><div class="subtitle">You escaped... but Ezra is not finished.</div><div class="win">You did it. Congratulations.</div></div></div></div>`;setTimeout(()=>{addChat("???","Can you hear me?");let a=new Audio(A+"game_whisper.mp3");a.play().catch(()=>{})},3000);addEventListener("keydown",gameKey);addEventListener("keyup",ku);requestAnimationFrame(gameLoop)}
-function gameKey(e){
-  let k=e.key.toLowerCase();
-  if(["w","a","s","d","i","e"].includes(k))e.preventDefault();
-  keys[k]=1;
-  if(k==="i"){
-    let x=document.getElementById("inventory");
-    x.style.display=x.style.display==="grid"?"none":"grid";
-  }
-  if(k==="e")gameInteract();
-}
-function gameLoop(){if(mode!=="game")return;let g=game;if(g.alive&&!g.escaped&&!g.spectate){let s=.035;if(keys.w)move(0,-s);if(keys.s)move(0,s);if(keys.a)move(-s,0);if(keys.d)move(s,0);pickup();checkExit();}if(g.net&&room){syncGame()}else monster();drawGame();requestAnimationFrame(gameLoop)}
-function blocked(x,y){
-  let m=game.map,r=.28;
-  if(x-r<1||y-r<1||x+r>m.w-1||y+r>m.h-1)return true;
-  return m.walls.some(a=>{
-    let nx=Math.max(a[0],Math.min(x,a[0]+a[2]));
-    let ny=Math.max(a[1],Math.min(y,a[1]+a[3]));
-    return Math.hypot(x-nx,y-ny)<r;
-  });
-}
-function move(dx,dy){
-  let nx=game.x+dx,ny=game.y;
-  if(!blocked(nx,ny))game.x=nx;
-  nx=game.x;ny=game.y+dy;
-  if(!blocked(nx,ny))game.y=ny;
-}
+function gameKey(e){let k=e.key.toLowerCase();keys[k]=1;if(k==="i"){let x=document.getElementById("inventory");x.style.display=x.style.display==="grid"?"none":"grid"}if(k==="e")gameInteract()}
+function gameLoop(){if(mode!=="game")return;let g=game;if(g.alive&&!g.escaped&&!g.spectate){let s=.024;if(keys.w)move(0,-s);if(keys.s)move(0,s);if(keys.a)move(-s,0);if(keys.d)move(s,0);pickup();checkExit();}if(g.net&&room){syncGame()}else monster();drawGame();requestAnimationFrame(gameLoop)}
+function blocked(x,y){let m=game.map;return x<1||y<1||x>=m.w-1||y>=m.h-1||m.walls.some(a=>x>=a[0]&&x<a[0]+a[2]&&y>=a[1]&&y<a[1]+a[3])}
+function move(dx,dy){if(!blocked(game.x+dx,game.y))game.x+=dx;if(!blocked(game.x,game.y+dy))game.y+=dy}
 function pickup(){let q=game.items.find(q=>!q.collected&&Math.hypot(q.x-game.x,q.y-game.y)<.75);if(q){q.collected=true;if(game.inv.length<7)game.inv.push(q.name);renderInv();if(game.net)req("/api/state",{code:roomCode,playerId,pickup:q.id})}}
 function renderInv(){game.inv.forEach((v,i)=>{let a=document.getElementById("is"+i);if(a)a.textContent=v;let h=document.getElementById("slot"+(i%3));if(h)h.textContent=v})}
 function gameInteract(){let q=game.items.find(q=>!q.collected&&Math.hypot(q.x-game.x,q.y-game.y)<1);if(q){alert(q.name+"\\n"+(q.digit?"A clue is hidden in this name.":"Something about this item feels unfinished."));return}if(Math.hypot(game.map.exit[0]-game.x,game.map.exit[1]-game.y)<1.5){if(game.items.filter(x=>x.collected).length>=5){let code="7342";let got=prompt("ENTER THE 4-DIGIT CODE");if(got===code)escapeGame();else alert("The lock rejects the code.")}else alert("The lock needs five items.")}}
 function checkExit(){if(Math.hypot(game.map.exit[0]-game.x,game.map.exit[1]-game.y)<1.5&&game.items.filter(x=>x.collected).length>=5)document.getElementById("exit").textContent="7342"}
 function monster(){let m=game.map,e=game.ezra,dx=game.x-e.x,dy=game.y-e.y,d=Math.hypot(dx,dy)||1;if(d<13){let s=.031,l=d;if(!blocked(e.x+dx/l*s,e.y))e.x+=dx/l*s;if(!blocked(e.x,e.y+dy/l*s))e.y+=dy/l*s}if(d<.62)die()}
-let lastSync=0,lastChatT=Date.now(),yesAudioPlayed=false;async function syncGame(){if(Date.now()-lastSync<180)return;lastSync=Date.now();try{let j=await req("/api/state",{code:roomCode,playerId,x:game.x,y:game.y});room=j.room;
-game.items=room.items.map(x=>({...x}));
-game.ezra=j.monster;
-if(Array.isArray(room.chat)){
-  for(const msg of room.chat){
-    if(msg.t>lastChatT){
-      if(String(msg.text||"").trim().toLowerCase()==="yes" && !yesAudioPlayed){
-        yesAudioPlayed=true;
-        const a=new Audio(A+"extra_audio.mp3");
-        a.play().catch(()=>{});
-      }
-      if(msg.t>lastChatT) lastChatT=msg.t;
-    }
-  }
-}
-let me=room.players.find(p=>p.id===playerId);if(me&&!me.alive&&game.alive)die(true);if(me?.escaped&&!game.escaped)escapeGame(true);document.getElementById("glog").innerHTML=room.chat.map(line).join("");document.getElementById("glog").scrollTop=99999;if(room.ending)endScreen()}catch(e){}}
+let lastSync=0;async function syncGame(){if(Date.now()-lastSync<180)return;lastSync=Date.now();try{let j=await req("/api/state",{code:roomCode,playerId,x:game.x,y:game.y});room=j.room;game.items=room.items.map(x=>({...x}));game.ezra=j.monster;let me=room.players.find(p=>p.id===playerId);if(me&&!me.alive&&game.alive)die(true);if(me?.escaped&&!game.escaped)escapeGame(true);document.getElementById("glog").innerHTML=room.chat.map(line).join("");document.getElementById("glog").scrollTop=99999;if(room.ending)endScreen()}catch(e){}}
 function die(serverDeath=false){if(!game.alive)return;game.alive=false;document.getElementById("death").style.display="flex";let n=5,el=document.getElementById("respawn"),timer=setInterval(()=>{n--;el.textContent=n>0?"RESPAWN ("+n+")":"RESPAWN";if(n<=0){clearInterval(timer);el.textContent="RESPAWN";el.style.cursor="pointer";el.onclick=respawn}},1000);if(game.net&&!serverDeath)req("/api/state",{code:roomCode,playerId,x:game.x,y:game.y})}
 function respawn(){if(game.net)req("/api/state",{code:roomCode,playerId,respawn:true});game.alive=true;game.x=game.map.start[0];game.y=game.map.start[1];document.getElementById("death").style.display="none"}
 function escapeGame(){game.escaped=true;game.spectate=true;if(game.net)req("/api/state",{code:roomCode,playerId,escaped:true});addChat("SYSTEM","You escaped. Spectate mode enabled.",true);setTimeout(()=>{},100)}
 function endScreen(){document.getElementById("ending").style.display="flex"}
 function addChat(from,text,sys=false){let x=document.getElementById("glog");if(x){x.innerHTML+=line({from,text,system:sys});x.scrollTop=99999}}
 function toggleChat(){let x=document.getElementById("gchat");x.style.display=x.style.display==="none"?"block":"none"}
-async async async function gmsg(){
-  let x=document.getElementById("gi");
-  let text=x.value.trim();
+async function gmsg(){
+  let x=document.getElementById("gi"), text=x.value.trim();
   if(!text)return;
   if(text.toLowerCase()==="yes"){
-    try{
-      let a=new Audio(A+"extra_audio.mp3");
-      a.volume=1;
-      await a.play();
-    }catch(e){}
+    let a=new Audio(A+"extra_audio.mp3");
+    a.play().catch(()=>{});
   }
   if(game.net)await req("/api/state",{code:roomCode,playerId,chat:text});
   else addChat(playerName,text);
