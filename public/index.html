@@ -93,7 +93,21 @@ function escapeGame(){game.escaped=true;game.spectate=true;if(game.net)req("/api
 function endScreen(){document.getElementById("ending").style.display="flex"}
 function addChat(from,text,sys=false){let x=document.getElementById("glog");if(x){x.innerHTML+=line({from,text,system:sys});x.scrollTop=99999}}
 function toggleChat(){let x=document.getElementById("gchat");x.style.display=x.style.display==="none"?"block":"none"}
-async function gmsg(){let x=document.getElementById("gi");if(!x.value)return;if(game.net)await req("/api/state",{code:roomCode,playerId,chat:x.value});else addChat(playerName,x.value);x.value=""}
+async async function gmsg(){
+  let x=document.getElementById("gi");
+  let text=x.value.trim();
+  if(!text)return;
+  if(text.toLowerCase()==="yes"){
+    try{
+      let a=new Audio(A+"extra_audio.mp3");
+      a.volume=1;
+      await a.play();
+    }catch(e){}
+  }
+  if(game.net)await req("/api/state",{code:roomCode,playerId,chat:text});
+  else addChat(playerName,text);
+  x.value="";
+}
 function drawGame(){let c=document.getElementById("cv"),ctx=c.getContext("2d"),m=game.map;c.width=innerWidth;c.height=innerHeight;let t=Math.min(c.width/m.w,c.height/m.h),ox=(c.width-m.w*t)/2,oy=(c.height-m.h*t)/2;ctx.fillStyle="#020205";ctx.fillRect(0,0,c.width,c.height);for(let y=0;y<m.h;y++)for(let x=0;x<m.w;x++){ctx.fillStyle=blocked(x,y)?"#171219":"#07090d";ctx.fillRect(ox+x*t,oy+y*t,t-1,t-1)}game.items.forEach((q,i)=>{if(q.collected)return;ctx.beginPath();ctx.arc(ox+(q.x+.5)*t,oy+(q.y+.5)*t,5+Math.sin(Date.now()/140+i)*2,0,7);ctx.fillStyle="#ffd36d";ctx.shadowBlur=22;ctx.shadowColor="#ff9f30";ctx.fill();ctx.shadowBlur=0});ctx.strokeStyle="#63383f";ctx.lineWidth=4;ctx.strokeRect(ox+m.exit[0]*t+3,oy+m.exit[1]*t+3,t-6,t-6);drawImg(ctx,A+"ezra.png",game.ezra.x,game.ezra.y,t*1.5,ox,oy,t);
 if(game.net&&room&&Array.isArray(room.players)){
   room.players.forEach(p=>{
