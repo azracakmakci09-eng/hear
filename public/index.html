@@ -93,7 +93,7 @@ function escapeGame(){game.escaped=true;game.spectate=true;if(game.net)req("/api
 function endScreen(){document.getElementById("ending").style.display="flex"}
 function addChat(from,text,sys=false){let x=document.getElementById("glog");if(x){x.innerHTML+=line({from,text,system:sys});x.scrollTop=99999}}
 function toggleChat(){let x=document.getElementById("gchat");x.style.display=x.style.display==="none"?"block":"none"}
-async async function gmsg(){
+async async async function gmsg(){
   let x=document.getElementById("gi");
   let text=x.value.trim();
   if(!text)return;
